@@ -1,0 +1,586 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sonic Hotel Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      /* Simple animations used in components */
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.5s ease-out forwards;
+      }
+      @keyframes fade-in-down {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in-down {
+        animation: fade-in-down 0.3s ease-out forwards;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/google-genai-v0.1.0/index.js",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.1.1/client",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.544.0",
+    "recharts": "https://aistudiocdn.com/recharts@^2.12.7",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React, { useState } from 'react';
+      import ReactDOM from 'react-dom/client';
+      import { GoogleGenAI, Type } from "@google/genai";
+      import { Settings, LogIn, UserCircle, LayoutDashboard, X, UploadCloud, Loader2, MapPin, Star, CheckCircle, XCircle, Clock, BarChart2, List, IndianRupee, Hash, BedDouble } from 'lucide-react';
+      import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+
+      // --- START: Inlined Code ---
+
+      // This object simulates process.env for the browser environment.
+      // IMPORTANT: Replace "YOUR_GEMINI_API_KEY" with your actual Google Gemini API key.
+      const process = {
+        env: {
+          API_KEY: "YOUR_GEMINI_API_KEY"
+        }
+      };
+
+      // --- From types.ts ---
+      const BookingStatus = {
+        Confirmed: 'पुष्ट',
+        Pending: 'लंबित',
+        Cancelled: 'रद्द',
+      };
+      
+      const CommissionStatus = {
+          Paid: 'भुगतान हुआ',
+          Pending: 'भुगतान बाकी'
+      };
+      
+      const OTAName = {
+          BookingCom: 'Booking.com',
+          Agoda: 'Agoda',
+          Goibibo: 'Goibibo',
+          MakeMyTrip: 'MakeMyTrip'
+      };
+
+      // --- From constants.ts ---
+      const HOTELS = [
+        { id: 1, name: 'रॉयल पैलेस होटल', location: 'नई दिल्ली', price: 2999, rating: 4.5, reviews: 120, imageUrl: 'https://picsum.photos/seed/hotel1/400/300' },
+        { id: 2, name: 'सी व्यू रिज़ॉर्ट', location: 'गोवा', price: 5499, rating: 4.8, reviews: 250, imageUrl: 'https://picsum.photos/seed/hotel2/400/300' },
+        { id: 3, name: 'माउंटेन व्यू विला', location: 'मनाली', price: 4200, rating: 4.6, reviews: 180, imageUrl: 'https://picsum.photos/seed/hotel3/400/300' },
+        { id: 4, name: 'लेकसाइड पैराडाइज', location: 'उदयपुर', price: 3800, rating: 4.7, reviews: 210, imageUrl: 'https://picsum.photos/seed/hotel4/400/300' },
+        { id: 5, name: 'सिटी सेंटर Inn', location: 'मुंबई', price: 3200, rating: 4.3, reviews: 300, imageUrl: 'https://picsum.photos/seed/hotel5/400/300' },
+        { id: 6, name: 'हिमालयन रिट्रीट', location: 'शिमला', price: 4800, rating: 4.9, reviews: 150, imageUrl: 'https://picsum.photos/seed/hotel6/400/300' },
+      ];
+      
+      const BOOKINGS = [
+          { id: '#HB123456', customer: 'राहुल शर्मा', hotel: 'रॉयल पैलेस होटल', date: '12 Aug 2023', amount: 3598, status: BookingStatus.Confirmed },
+          { id: '#HB123457', customer: 'प्रिया पाटिल', hotel: 'सी व्यू रिज़ॉर्ट', date: '11 Aug 2023', amount: 5298, status: BookingStatus.Confirmed },
+          { id: '#HB123458', customer: 'अमित कुमार', hotel: 'माउंटेन व्यू विला', date: '10 Aug 2023', amount: 7598, status: BookingStatus.Pending },
+          { id: '#HB123459', customer: 'नीता मेनन', hotel: 'रॉयल पैलेस होटल', date: '09 Aug 2023', amount: 4198, status: BookingStatus.Confirmed },
+          { id: '#HB123460', customer: 'संजय गुप्ता', hotel: 'सी व्यू रिज़ॉर्ट', date: '08 Aug 2023', amount: 6498, status: BookingStatus.Cancelled },
+      ];
+      
+      const COMMISSIONS = [
+          { hotel: 'रॉयल पैलेस होटल', bookings: 24, totalAmount: 86540, commissionPercentage: 15, commissionAmount: 12981, status: CommissionStatus.Pending },
+          { hotel: 'सी व्यू रिज़ॉर्ट', bookings: 18, totalAmount: 102650, commissionPercentage: 12, commissionAmount: 12318, status: CommissionStatus.Paid },
+          { hotel: 'माउंटेन व्यू विला', bookings: 8, totalAmount: 60780, commissionPercentage: 10, commissionAmount: 6078, status: CommissionStatus.Pending },
+      ];
+      
+      const SUBSCRIPTION_PLANS = [
+          { name: 'बेसिक', price: 499, features: ['10 होटल तक', '50 बुकिंग/माह', 'ईमेल समर्थन', 'मूल रिपोर्ट'], nonFeatures: ['OTA एकीकरण', 'कस्टम डोमेन'], isPopular: false },
+          { name: 'प्रो', price: 999, features: ['अनलिमिटेड होटल', '200 बुकिंग/माह', 'प्राथमिक समर्थन', 'उन्नत रिपोर्ट', '1 OTA एकीकरण', '1 कस्टम डोमेन'], isPopular: true },
+          { name: 'एंटरप्राइज', price: 1999, features: ['अनलिमिटेड होटल', 'अनलिमिटेड बुकिंग', '24/7 समर्थन', 'विस्तृत रिपोर्ट', 'सभी OTA एकीकरण', 'एकाधिक डोमेन'], isPopular: false }
+      ];
+      
+      const OTA_INTEGRATIONS = [
+          { name: OTAName.BookingCom, description: 'अपने Booking.com खाते से कनेक्ट करें', connected: true },
+          { name: OTAName.Agoda, description: 'अपने Agoda खाते से कनेक्ट करें', connected: false },
+          { name: OTAName.Goibibo, description: 'अपने Goibibo खाते से कनेक्ट करें', connected: false },
+          { name: OTAName.MakeMyTrip, description: 'अपने MakeMyTrip खाते से कनेक्ट करें', connected: false },
+      ];
+      
+      // --- From components/icons.tsx ---
+      const IconSparkles = (props) => (
+        React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", ...props },
+          React.createElement('path', { d: "M9.93 2.55a2 2 0 0 0-1.86 0L6.53 4.1a2 2 0 0 1-1.1.55l-2.1.38a2 2 0 0 0-1.6 2.4l.7 2.3a2 2 0 0 1-.22 1.5l-1.2 1.9a2 2 0 0 0 .6 2.9l2 1.4a2 2 0 0 1 .56 1.1l.38 2.1a2 2 0 0 0 2.4 1.6l2.3-.7a2 2 0 0 1 1.5.22l1.9 1.2a2 2 0 0 0 2.9-.6l1.4-2a2 2 0 0 1 1.1-.56l2.1-.38a2 2 0 0 0 1.6-2.4l-.7-2.3a2 2 0 0 1 .22-1.5l1.2-1.9a2 2 0 0 0-.6-2.9l-2-1.4a2 2 0 0 1-.56-1.1l-.38-2.1a2 2 0 0 0-2.4-1.6l-2.3.7a2 2 0 0 1-1.5-.22Z" }),
+          React.createElement('path', { d: "M18 8 L20 6" }),
+          React.createElement('path', { d: "M12 2 L12 4" }),
+          React.createElement('path', { d: "M6 8 L4 6" })
+        )
+      );
+
+      const IconGoogle = (props) => (
+        React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "currentColor", ...props },
+          React.createElement('path', { d: "M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" }),
+          React.createElement('path', { d: "M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" }),
+          React.createElement('path', { d: "M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" }),
+          React.createElement('path', { d: "M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" })
+        )
+      );
+      
+      const IconGitHub = (props) => (
+        React.createElement('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "currentColor", ...props },
+          React.createElement('path', { d: "M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" })
+        )
+      );
+      
+      // --- From components/AuthModal.tsx ---
+      const AuthModal = ({ isOpen, onClose }) => {
+        const [isLogin, setIsLogin] = useState(true);
+        const [email, setEmail] = useState('');
+        const [password, setPassword] = useState('');
+        const [confirmPassword, setConfirmPassword] = useState('');
+        const [errors, setErrors] = useState({});
+
+        if (!isOpen) return null;
+
+        const handleClose = () => {
+          setEmail(''); setPassword(''); setConfirmPassword(''); setErrors({}); setIsLogin(true);
+          onClose();
+        };
+        
+        const validate = () => {
+          const newErrors = {};
+          if (!email) newErrors.email = 'ईमेल आवश्यक है';
+          else if (!/\\S+@\\S+\\.\\S+/.test(email)) newErrors.email = 'अमान्य ईमेल प्रारूप';
+          if (!password) newErrors.password = 'पासवर्ड आवश्यक है';
+          else if (password.length < 6) newErrors.password = 'पासवर्ड कम से कम 6 अक्षर का होना चाहिए';
+          if (!isLogin && password !== confirmPassword) newErrors.confirmPassword = 'पासवर्ड मेल नहीं खाते';
+          setErrors(newErrors);
+          return Object.keys(newErrors).length === 0;
+        };
+
+        const handleSubmit = (e) => {
+          e.preventDefault();
+          if (validate()) {
+            console.log('Form submitted successfully');
+            handleClose();
+          }
+        };
+
+        return React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4" },
+          React.createElement('div', { className: "bg-white rounded-lg shadow-xl p-8 w-full max-w-md m-4 relative animate-fade-in-down" },
+            React.createElement('button', { onClick: handleClose, className: "absolute top-4 right-4 text-gray-400 hover:text-gray-600" }, React.createElement(X, { size: 24 })),
+            React.createElement('div', { className: "text-center mb-6" },
+              React.createElement('h2', { className: "text-2xl font-bold text-gray-800" }, isLogin ? 'लॉग इन करें' : 'साइन अप करें'),
+              React.createElement('p', { className: "text-gray-500 mt-2" }, "जारी रखने के लिए अपने खाते तक पहुंचें।")
+            ),
+            React.createElement('form', { onSubmit: handleSubmit, className: "space-y-4" },
+              React.createElement('div', null,
+                React.createElement('label', { htmlFor: "email", className: "block text-sm font-medium text-gray-700" }, "ईमेल"),
+                React.createElement('input', { type: "email", id: "email", name: "email", value: email, onChange: (e) => setEmail(e.target.value), className: `mt-1 block w-full px-3 py-2 bg-white border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm`, placeholder: "you@example.com" }),
+                errors.email && React.createElement('p', { className: "text-xs text-red-500 mt-1" }, errors.email)
+              ),
+              React.createElement('div', null,
+                React.createElement('div', { className: "flex justify-between items-center" },
+                  React.createElement('label', { htmlFor: "password", className: "block text-sm font-medium text-gray-700" }, "पासवर्ड"),
+                  isLogin && React.createElement('a', { href: "#", className: "text-sm text-indigo-600 hover:text-indigo-500" }, "पासवर्ड भूल गए?")
+                ),
+                React.createElement('input', { type: "password", id: "password", name: "password", value: password, onChange: (e) => setPassword(e.target.value), className: `mt-1 block w-full px-3 py-2 bg-white border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm`, placeholder: "••••••••" }),
+                errors.password && React.createElement('p', { className: "text-xs text-red-500 mt-1" }, errors.password)
+              ),
+              !isLogin && React.createElement('div', null,
+                React.createElement('label', { htmlFor: "confirm-password", className: "block text-sm font-medium text-gray-700" }, "पासवर्ड की पुष्टि करें"),
+                React.createElement('input', { type: "password", id: "confirm-password", name: "confirm-password", value: confirmPassword, onChange: (e) => setConfirmPassword(e.target.value), className: `mt-1 block w-full px-3 py-2 bg-white border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm`, placeholder: "••••••••" }),
+                errors.confirmPassword && React.createElement('p', { className: "text-xs text-red-500 mt-1" }, errors.confirmPassword)
+              ),
+              React.createElement('button', { type: "submit", className: "w-full bg-gray-800 text-white font-semibold py-2 px-4 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-800 disabled:bg-gray-400 transition-colors" }, isLogin ? 'लॉग इन करें' : 'खाता बनाएं')
+            ),
+            React.createElement('div', { className: "relative my-6" },
+              React.createElement('div', { className: "absolute inset-0 flex items-center" }, React.createElement('div', { className: "w-full border-t border-gray-300" })),
+              React.createElement('div', { className: "relative flex justify-center text-sm" }, React.createElement('span', { className: "px-2 bg-white text-gray-500" }, "या इसके साथ जारी रखें"))
+            ),
+            React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 gap-3" },
+              React.createElement('button', { className: "w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50" }, React.createElement(IconGoogle, { className: "w-5 h-5 mr-2" }), "Google"),
+              React.createElement('button', { className: "w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50" }, React.createElement(IconGitHub, { className: "w-5 h-5 mr-2" }), "GitHub")
+            ),
+            React.createElement('div', { className: "text-center mt-6" },
+              React.createElement('p', { className: "text-sm text-gray-600" },
+                isLogin ? 'अभी तक कोई खाता नहीं है? ' : 'पहले से एक खाता मौजूद है? ',
+                React.createElement('button', { onClick: () => { setIsLogin(!isLogin); setErrors({}); }, className: "font-medium text-indigo-600 hover:text-indigo-500" }, isLogin ? 'साइन अप करें' : 'लॉग इन करें')
+              )
+            )
+          )
+        );
+      };
+      
+      // --- From components/CustomizationPanel.tsx ---
+      const InputField = ({ label, value, onChange, name }) => (
+        React.createElement('div', null,
+          React.createElement('label', { htmlFor: name, className: "block text-sm font-medium text-gray-700" }, label),
+          React.createElement('input', { type: "text", id: name, name: name, value: value, onChange: onChange, className: "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm" })
+        )
+      );
+
+      const fileToGenerativePart = async (file) => {
+        const base64EncodedDataPromise = new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve((reader.result).split(',')[1]);
+          reader.readAsDataURL(file);
+        });
+        return { inlineData: { data: await base64EncodedDataPromise, mimeType: file.type } };
+      };
+
+      const CustomizationPanel = ({ isOpen, onClose, customization, onCustomizationChange }) => {
+        const [uploadedLogo, setUploadedLogo] = useState(null);
+        const [logoPreview, setLogoPreview] = useState(null);
+        const [generatedPalette, setGeneratedPalette] = useState([]);
+        const [isLoading, setIsLoading] = useState(false);
+        const [error, setError] = useState(null);
+
+        const handleInputChange = (e) => {
+          const { name, value } = e.target;
+          onCustomizationChange({ [name]: value });
+        };
+
+        const handleColorChange = (color) => {
+          onCustomizationChange({ primaryColor: color });
+          setGeneratedPalette([]);
+        };
+        
+        const handleLogoUpload = (e) => {
+          if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setUploadedLogo(file);
+            setLogoPreview(URL.createObjectURL(file));
+            setError(null);
+            setGeneratedPalette([]);
+          }
+        };
+
+        const handleGenerateBrandKit = async () => {
+          if (!uploadedLogo) {
+            setError("Please upload a logo first.");
+            return;
+          }
+          setIsLoading(true); setError(null); setGeneratedPalette([]);
+
+          try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const imagePart = await fileToGenerativePart(uploadedLogo);
+
+            const response = await ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: { parts: [ imagePart, { text: "Analyze this logo. Extract a vibrant color palette of 5 primary and secondary brand colors. Also, suggest a creative brand name (without a suffix) and a catchy hero title based on the visual identity. Return a JSON object with keys: 'palette' (array of hex strings), 'brandName' (string), 'heroTitle' (string)." } ] },
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.OBJECT,
+                  properties: {
+                    palette: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    brandName: { type: Type.STRING },
+                    heroTitle: { type: Type.STRING }
+                  },
+                },
+              },
+            });
+            
+            const result = JSON.parse(response.text);
+
+            if (result.palette && result.palette.length > 0) {
+              setGeneratedPalette(result.palette);
+              onCustomizationChange({ 
+                  primaryColor: result.palette[0],
+                  brandName: result.brandName || customization.brandName,
+                  heroTitle: result.heroTitle || customization.heroTitle,
+              });
+            } else { throw new Error("AI did not return a valid palette."); }
+          } catch (e) {
+            console.error(e);
+            setError("Could not generate brand kit. Please try another image.");
+          } finally { setIsLoading(false); }
+        };
+
+        const colorPalette = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#64748b'];
+
+        return React.createElement('div', { className: `fixed top-0 right-0 h-full bg-white shadow-2xl z-50 transition-transform transform ${isOpen ? 'translate-x-0' : 'translate-x-full'} w-full max-w-sm` },
+          React.createElement('div', { className: "flex justify-between items-center p-4 border-b" },
+            React.createElement('h2', { className: "text-lg font-semibold text-gray-800" }, "कस्टमाइज़ करें"),
+            React.createElement('button', { onClick: onClose, className: "text-gray-500 hover:text-gray-800" }, React.createElement(X, { size: 24 }))
+          ),
+          React.createElement('div', { className: "p-6 space-y-6 overflow-y-auto h-[calc(100vh-65px)]" },
+            // AI Brand Kit Section
+            React.createElement('div', { className: "space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50" },
+              React.createElement('h3', { className: "text-md font-semibold text-gray-700 flex items-center" }, React.createElement(IconSparkles, { className: "w-5 h-5 mr-2 text-violet-500" }), " AI ब्रांड किट जेनरेटर"),
+              React.createElement('label', { htmlFor: "logo-upload", className: "cursor-pointer block w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400" },
+                React.createElement(UploadCloud, { className: "mx-auto h-12 w-12 text-gray-400" }),
+                React.createElement('span', { className: "mt-2 block text-sm font-medium text-gray-900" }, logoPreview ? 'Change Logo' : 'अपना लोगो अपलोड करें'),
+                React.createElement('input', { id: "logo-upload", name: "logo-upload", type: "file", className: "sr-only", accept: "image/*", onChange: handleLogoUpload })
+              ),
+              logoPreview && React.createElement('div', { className: "flex justify-center" }, React.createElement('img', { src: logoPreview, alt: "Logo Preview", className: "h-16 w-auto object-contain rounded-md bg-white p-1 border" })),
+              React.createElement('button', { onClick: handleGenerateBrandKit, disabled: isLoading || !uploadedLogo, className: "w-full flex items-center justify-center bg-gray-800 text-white font-semibold py-2 px-4 rounded-md hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors" },
+                isLoading ? React.createElement(React.Fragment, null, React.createElement(Loader2, { className: "mr-2 h-5 w-5 animate-spin" }), " प्रोसेस हो रहा है...") : 'AI से ब्रांड किट बनाएं'
+              ),
+              error && React.createElement('p', { className: "text-sm text-red-600" }, error),
+              generatedPalette.length > 0 && React.createElement('div', null,
+                React.createElement('label', { className: "block text-sm font-medium text-gray-700" }, "AI द्वारा उत्पन्न पैलेट"),
+                React.createElement('div', { className: "mt-2 flex flex-wrap gap-3" },
+                  generatedPalette.map(color => React.createElement('button', { key: color, onClick: () => onCustomizationChange({ primaryColor: color }), className: `w-8 h-8 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${customization.primaryColor === color ? 'ring-2 ring-offset-2 ring-gray-800' : ''}`, style: { backgroundColor: color }, 'aria-label': `Set color to ${color}` }))
+                )
+              )
+            ),
+            // Manual Branding
+            React.createElement('div', { className: "space-y-4" },
+              React.createElement('h3', { className: "text-md font-semibold text-gray-700 border-b pb-2" }, "मैनुअल ब्रांडिंग"),
+              React.createElement(InputField, { label: "ब्रांड नाम", name: "brandName", value: customization.brandName, onChange: handleInputChange }),
+              React.createElement(InputField, { label: "ब्रांड नाम Suffix", name: "brandNameSuffix", value: customization.brandNameSuffix, onChange: handleInputChange }),
+              React.createElement('div', null,
+                React.createElement('label', { className: "block text-sm font-medium text-gray-700" }, "प्राथमिक रंग"),
+                React.createElement('div', { className: "mt-2 flex flex-wrap gap-3" },
+                  colorPalette.map(color => React.createElement('button', { key: color, onClick: () => handleColorChange(color), className: `w-8 h-8 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${customization.primaryColor === color ? 'ring-2 ring-offset-2 ring-gray-800' : ''}`, style: { backgroundColor: color }, 'aria-label': `Set color to ${color}` }))
+                )
+              )
+            ),
+            // Hero Section
+            React.createElement('div', { className: "space-y-4" },
+                React.createElement('h3', { className: "text-md font-semibold text-gray-700 border-b pb-2" }, "हीरो सेक्शन"),
+                React.createElement(InputField, { label: "हीरो शीर्षक", name: "heroTitle", value: customization.heroTitle, onChange: handleInputChange }),
+                React.createElement('div', null,
+                    React.createElement('label', { htmlFor: "heroSubtitle", className: "block text-sm font-medium text-gray-700" }, "हीरो उपशीर्षक"),
+                    React.createElement('textarea', { id: "heroSubtitle", name: "heroSubtitle", value: customization.heroSubtitle, onChange: (e) => onCustomizationChange({ heroSubtitle: e.target.value }), rows: 3, className: "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm" })
+                )
+            )
+          )
+        );
+      };
+
+      // --- From pages/HomePage.tsx ---
+      const HotelCard = ({ hotel }) => (
+        React.createElement('div', { className: "bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-105" },
+          React.createElement('img', { src: hotel.imageUrl, alt: hotel.name, className: "w-full h-48 object-cover" }),
+          React.createElement('div', { className: "p-4" },
+            React.createElement('h3', { className: "text-lg font-semibold text-gray-800" }, hotel.name),
+            React.createElement('p', { className: "text-sm text-gray-500 flex items-center mt-1" }, React.createElement(MapPin, { size: 14, className: "mr-1" }), ` ${hotel.location}`),
+            React.createElement('div', { className: "flex justify-between items-center mt-4" },
+              React.createElement('p', { className: "text-lg font-bold text-gray-900" }, `₹${hotel.price.toLocaleString('en-IN')}`, React.createElement('span', { className: "text-sm font-normal text-gray-500" }, "/रात")),
+              React.createElement('div', { className: "flex items-center" },
+                React.createElement(Star, { size: 16, className: "text-yellow-400 fill-current" }),
+                React.createElement('span', { className: "ml-1 text-sm font-semibold text-gray-700" }, hotel.rating),
+                React.createElement('span', { className: "ml-2 text-sm text-gray-500" }, `(${hotel.reviews} समीक्षाएं)`)
+              )
+            )
+          )
+        )
+      );
+
+      const HomePage = ({ customization }) => {
+        const heroStyle = { backgroundColor: customization.primaryColor };
+        return React.createElement('div', { className: "bg-gray-50" },
+          React.createElement('section', { style: heroStyle, className: "text-white py-20 px-4 text-center" },
+            React.createElement('h1', { className: "text-4xl md:text-5xl font-extrabold" }, customization.heroTitle),
+            React.createElement('p', { className: "mt-4 text-lg md:text-xl max-w-2xl mx-auto" }, customization.heroSubtitle),
+            React.createElement('div', { className: "mt-8" }, React.createElement('input', { type: "text", placeholder: "एक गंतव्य या होटल खोजें...", className: "w-full max-w-lg mx-auto p-4 rounded-full text-gray-800" }))
+          ),
+          React.createElement('section', { className: "py-16 px-4 max-w-7xl mx-auto" },
+            React.createElement('h2', { className: "text-3xl font-bold text-center text-gray-800 mb-12" }, "विशेष रुप से प्रदर्शित होटल"),
+            React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" }, HOTELS.map(hotel => React.createElement(HotelCard, { key: hotel.id, hotel: hotel })))
+          ),
+          React.createElement('footer', { className: "bg-gray-800 text-white py-8" },
+            React.createElement('div', { className: "max-w-7xl mx-auto px-4 text-center" }, React.createElement('p', null, `© ${new Date().getFullYear()} ${customization.brandName} ${customization.brandNameSuffix}. सर्वाधिकार सुरक्षित।`))
+          )
+        );
+      };
+
+      // --- From pages/AdminDashboard.tsx ---
+      const getBookingStatusIcon = (status) => {
+        switch (status) {
+          case BookingStatus.Confirmed: return React.createElement(CheckCircle, { className: "text-green-500", size: 16 });
+          case BookingStatus.Pending: return React.createElement(Clock, { className: "text-yellow-500", size: 16 });
+          case BookingStatus.Cancelled: return React.createElement(XCircle, { className: "text-red-500", size: 16 });
+        }
+      };
+      
+      const getCommissionStatusChip = (status) => {
+        const baseClasses = "px-2 py-1 text-xs font-semibold rounded-full";
+        switch (status) {
+          case CommissionStatus.Paid: return React.createElement('span', { className: `${baseClasses} bg-green-100 text-green-800` }, status);
+          case CommissionStatus.Pending: return React.createElement('span', { className: `${baseClasses} bg-yellow-100 text-yellow-800` }, status);
+        }
+      };
+      
+      const Card = ({ title, children, className }) => (
+        React.createElement('div', { className: `bg-white rounded-lg shadow-md p-6 ${className || ''}` },
+          React.createElement('h3', { className: "text-xl font-semibold text-gray-800 mb-4" }, title),
+          children
+        )
+      );
+      
+      const KpiCard = ({ title, value, icon }) => (
+        React.createElement('div', { className: "bg-white rounded-lg shadow-md p-5 flex items-center" },
+          React.createElement('div', { className: "p-3 rounded-full bg-gray-100 mr-4" }, icon),
+          React.createElement('div', null,
+            React.createElement('p', { className: "text-sm text-gray-500" }, title),
+            React.createElement('p', { className: "text-2xl font-bold text-gray-900" }, value)
+          )
+        )
+      );
+
+      // Analytics Data
+      const totalRevenue = BOOKINGS.filter(b => b.status === BookingStatus.Confirmed).reduce((acc, b) => acc + b.amount, 0);
+      const totalBookings = BOOKINGS.length;
+      const confirmedBookingsCount = BOOKINGS.filter(b => b.status === BookingStatus.Confirmed).length;
+      const avgBookingValue = confirmedBookingsCount > 0 ? totalRevenue / confirmedBookingsCount : 0;
+      const monthlyRevenueData = [
+          { name: 'Apr', revenue: 65000 }, { name: 'May', revenue: 78000 }, { name: 'Jun', revenue: 92000 }, { name: 'Jul', revenue: 81000 }, { name: 'Aug', revenue: totalRevenue },
+      ];
+      const bookingStatusData = [
+          { name: 'Confirmed', value: BOOKINGS.filter(b => b.status === BookingStatus.Confirmed).length },
+          { name: 'Pending', value: BOOKINGS.filter(b => b.status === BookingStatus.Pending).length },
+          { name: 'Cancelled', value: BOOKINGS.filter(b => b.status === BookingStatus.Cancelled).length },
+      ];
+      const PIE_COLORS = ['#22c55e', '#facc15', '#ef4444'];
+      
+      const AdminDashboard = () => {
+          const [activeTab, setActiveTab] = useState('overview');
+          return React.createElement('div', { className: "bg-gray-100 min-h-screen p-8" },
+              React.createElement('header', { className: "mb-6" },
+                  React.createElement('h1', { className: "text-3xl font-bold text-gray-900" }, "व्यवस्थापक डैशबोर्ड"),
+                  React.createElement('p', { className: "text-gray-600 mt-1" }, "अपने होटल व्यवसाय का अवलोकन और प्रबंधन करें।")
+              ),
+              React.createElement('div', { className: "mb-8 border-b border-gray-200" },
+                  React.createElement('nav', { className: "-mb-px flex space-x-6", 'aria-label': "Tabs" },
+                      React.createElement('button', { onClick: () => setActiveTab('overview'), className: `whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'overview' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}` }, React.createElement(List, { size: 16, className: "inline mr-2" }), " अवलोकन"),
+                      React.createElement('button', { onClick: () => setActiveTab('analytics'), className: `whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'analytics' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}` }, React.createElement(BarChart2, { size: 16, className: "inline mr-2" }), "एनालिटिक्स")
+                  )
+              ),
+              activeTab === 'overview' && React.createElement('div', { className: "grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in" },
+                  React.createElement('div', { className: "lg:col-span-2 space-y-8" },
+                      React.createElement(Card, { title: "नवीनतम बुकिंग" },
+                          React.createElement('div', { className: "overflow-x-auto" },
+                              React.createElement('table', { className: "w-full text-sm text-left text-gray-500" },
+                                  React.createElement('thead', { className: "text-xs text-gray-700 uppercase bg-gray-50" }, React.createElement('tr', null, React.createElement('th', { scope: "col", className: "px-6 py-3" }, "Booking ID"), React.createElement('th', { scope: "col", className: "px-6 py-3" }, "ग्राहक"), React.createElement('th', { scope: "col", className: "px-6 py-3" }, "होटल"), React.createElement('th', { scope: "col", className: "px-6 py-3" }, "दिनांक"), React.createElement('th', { scope: "col", className: "px-6 py-3" }, "राशि"), React.createElement('th', { scope: "col", className: "px-6 py-3" }, "स्थिति"))),
+                                  React.createElement('tbody', null, BOOKINGS.map(b => React.createElement('tr', { key: b.id, className: "bg-white border-b hover:bg-gray-50" }, React.createElement('td', { className: "px-6 py-4 font-medium text-gray-900" }, b.id), React.createElement('td', { className: "px-6 py-4" }, b.customer), React.createElement('td', { className: "px-6 py-4" }, b.hotel), React.createElement('td', { className: "px-6 py-4" }, b.date), React.createElement('td', { className: "px-6 py-4" }, `₹${b.amount.toLocaleString('en-IN')}`), React.createElement('td', { className: "px-6 py-4 flex items-center gap-2" }, getBookingStatusIcon(b.status), b.status))))
+                              )
+                          )
+                      ),
+                      React.createElement(Card, { title: "कमीशन अवलोकन" },
+                          React.createElement('div', { className: "overflow-x-auto" },
+                              React.createElement('table', { className: "w-full text-sm text-left text-gray-500" },
+                                  React.createElement('thead', { className: "text-xs text-gray-700 uppercase bg-gray-50" }, React.createElement('tr', null, React.createElement('th', { scope: "col", className: "px-6 py-3" }, "होटल"), React.createElement('th', { scope: "col", className: "px-6 py-3" }, "बुकिंग"), React.createElement('th', { scope: "col", className: "px-6 py-3" }, "कमीशन राशि"), React.createElement('th', { scope: "col", className: "px-6 py-3" }, "स्थिति"))),
+                                  React.createElement('tbody', null, COMMISSIONS.map(c => React.createElement('tr', { key: c.hotel, className: "bg-white border-b hover:bg-gray-50" }, React.createElement('td', { className: "px-6 py-4 font-medium text-gray-900" }, c.hotel), React.createElement('td', { className: "px-6 py-4" }, c.bookings), React.createElement('td', { className: "px-6 py-4" }, `₹${c.commissionAmount.toLocaleString('en-IN')} (${c.commissionPercentage}%)`), React.createElement('td', { className: "px-6 py-4" }, getCommissionStatusChip(c.status)))))
+                              )
+                          )
+                      )
+                  ),
+                  React.createElement('div', { className: "space-y-8" },
+                      React.createElement(Card, { title: "सदस्यता योजना" },
+                          React.createElement('div', { className: "space-y-4" }, SUBSCRIPTION_PLANS.filter(p => p.isPopular).map(p => React.createElement('div', { key: p.name, className: "border border-indigo-500 rounded-lg p-4 bg-indigo-50" }, React.createElement('h4', { className: "font-bold text-indigo-800" }, `आपकी वर्तमान योजना: ${p.name}`), React.createElement('p', { className: "text-sm text-indigo-600 mt-1" }, `₹${p.price}/माह`), React.createElement('button', { className: "mt-4 w-full text-sm bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-indigo-700" }, "योजना अपग्रेड करें"))))
+                      ),
+                      React.createElement(Card, { title: "OTA एकीकरण" },
+                          React.createElement('ul', { className: "space-y-3" }, OTA_INTEGRATIONS.map(ota => React.createElement('li', { key: ota.name, className: "flex items-center justify-between" }, React.createElement('div', null, React.createElement('p', { className: "font-semibold" }, ota.name), React.createElement('p', { className: "text-sm text-gray-500" }, ota.description)), ota.connected ? React.createElement('span', { className: "text-sm font-medium text-green-600 flex items-center" }, React.createElement(CheckCircle, { size: 16, className: "mr-1" }), "जुड़ा हुआ") : React.createElement('button', { className: "text-sm text-blue-600 hover:underline" }, "कनेक्ट"))))
+                      )
+                  )
+              ),
+              activeTab === 'analytics' && React.createElement('div', { className: "space-y-8 animate-fade-in" },
+                  React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-3 gap-6" },
+                      React.createElement(KpiCard, { title: "कुल राजस्व", value: `₹${totalRevenue.toLocaleString('en-IN')}`, icon: React.createElement(IndianRupee, { className: "text-green-500" }) }),
+                      React.createElement(KpiCard, { title: "कुल बुकिंग", value: totalBookings.toString(), icon: React.createElement(Hash, { className: "text-blue-500" }) }),
+                      React.createElement(KpiCard, { title: "औसत बुकिंग मूल्य", value: `₹${Math.round(avgBookingValue).toLocaleString('en-IN')}`, icon: React.createElement(BedDouble, { className: "text-indigo-500" }) })
+                  ),
+                  React.createElement('div', { className: "grid grid-cols-1 lg:grid-cols-5 gap-8" },
+                      React.createElement('div', { className: "lg:col-span-3" },
+                          React.createElement(Card, { title: "मासिक राजस्व अवलोकन" },
+                              React.createElement('div', { style: { width: '100%', height: 300 } },
+                                  React.createElement(ResponsiveContainer, null,
+                                      React.createElement(LineChart, { data: monthlyRevenueData, margin: { top: 5, right: 20, left: -10, bottom: 5 } }, React.createElement(CartesianGrid, { strokeDasharray: "3 3" }), React.createElement(XAxis, { dataKey: "name" }), React.createElement(YAxis, null), React.createElement(Tooltip, { formatter: (value) => `₹${value.toLocaleString('en-IN')}` }), React.createElement(Legend, null), React.createElement(Line, { type: "monotone", dataKey: "revenue", name: "Revenue", stroke: "#4f46e5", strokeWidth: 2 }))
+                                  )
+                              )
+                          )
+                      ),
+                      React.createElement('div', { className: "lg:col-span-2" },
+                          React.createElement(Card, { title: "बुकिंग स्थिति वितरण" },
+                              React.createElement('div', { style: { width: '100%', height: 300 } },
+                                  React.createElement(ResponsiveContainer, null,
+                                      React.createElement(PieChart, null, React.createElement(Pie, { data: bookingStatusData, cx: "50%", cy: "50%", labelLine: false, outerRadius: 100, fill: "#8884d8", dataKey: "value", nameKey: "name", label: (entry) => `${entry.name} (${entry.value})` }, bookingStatusData.map((entry, index) => React.createElement(Cell, { key: `cell-${index}`, fill: PIE_COLORS[index % PIE_COLORS.length] }))), React.createElement(Tooltip, null), React.createElement(Legend, null))
+                                  )
+                              )
+                          )
+                      )
+                  )
+              )
+          );
+      };
+      
+      // --- From App.tsx ---
+      const App = () => {
+        const [view, setView] = useState('home');
+        const [isPanelOpen, setIsPanelOpen] = useState(false);
+        const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+        const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+        const [customization, setCustomization] = useState({
+          brandName: 'Sonic', brandNameSuffix: 'Hotel Pro', primaryColor: '#3b82f6',
+          heroTitle: 'अपनी अगली आरामदायक छुट्टी पाएं',
+          heroSubtitle: 'शानदार होटलों, रिज़ॉर्ट्स और बहुत कुछ पर सर्वोत्तम मूल्य खोजें। सुरक्षित रूप से और आसानी से बुक करें।',
+        });
+
+        const handleCustomizationChange = (newValues) => {
+          setCustomization(prev => ({ ...prev, ...newValues }));
+        };
+
+        const headerStyle = { '--primary-color': customization.primaryColor };
+
+        return React.createElement('div', { className: "font-sans" },
+          React.createElement('header', { style: headerStyle, className: "bg-[var(--primary-color)] text-white shadow-md sticky top-0 z-40" },
+            React.createElement('nav', { className: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" },
+              React.createElement('div', { className: "flex items-center justify-between h-16" },
+                React.createElement('div', { className: "flex items-center" },
+                  React.createElement('a', { href: "#", onClick: (e) => { e.preventDefault(); setView('home'); }, className: "text-2xl font-bold" },
+                    customization.brandName,
+                    React.createElement('span', { className: "font-light" }, customization.brandNameSuffix)
+                  )
+                ),
+                React.createElement('div', { className: "flex items-center space-x-1 sm:space-x-2" },
+                  isAuthenticated && view === 'home' && React.createElement('button', { onClick: () => setView('dashboard'), className: "flex items-center text-white hover:text-gray-200 p-2 rounded-lg hover:bg-white/10" },
+                    React.createElement(LayoutDashboard, { size: 20 }),
+                    React.createElement('span', { className: "hidden sm:inline ml-2 font-medium" }, "डैशबोर्ड")
+                  ),
+                  isAuthenticated && view === 'dashboard' && React.createElement('button', { onClick: () => setView('home'), className: "flex items-center text-white hover:text-gray-200 p-2 rounded-lg hover:bg-white/10 font-medium" }, "होमपेज"),
+                  React.createElement('button', { onClick: () => setIsPanelOpen(true), className: "p-2 rounded-full hover:bg-white/20", 'aria-label': "Customize theme" }, React.createElement(Settings, { size: 20 })),
+                  isAuthenticated ?
+                    React.createElement('button', { onClick: () => setIsAuthenticated(false), className: "p-2 rounded-full hover:bg-white/20", 'aria-label': "User account" }, React.createElement(UserCircle, { size: 24 })) :
+                    React.createElement('button', { onClick: () => setIsAuthModalOpen(true), className: "flex items-center text-white hover:text-gray-200 p-2 rounded-lg hover:bg-white/10" },
+                      React.createElement(LogIn, { size: 20 }),
+                      React.createElement('span', { className: "hidden sm:inline ml-2 font-medium" }, "लॉग इन करें")
+                    )
+                )
+              )
+            )
+          ),
+          React.createElement('main', null, view === 'home' ? React.createElement(HomePage, { customization: customization }) : React.createElement(AdminDashboard, null)),
+          React.createElement(CustomizationPanel, { isOpen: isPanelOpen, onClose: () => setIsPanelOpen(false), customization: customization, onCustomizationChange: handleCustomizationChange }),
+          React.createElement(AuthModal, { isOpen: isAuthModalOpen, onClose: () => { setIsAuthModalOpen(false); if (!isAuthenticated) setIsAuthenticated(true); } })
+        );
+      };
+      
+      // --- From index.tsx ---
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        throw new Error("Could not find root element to mount to");
+      }
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(React.createElement(React.StrictMode, null, React.createElement(App, null)));
+
+    </script>
+  </body>
+</html>

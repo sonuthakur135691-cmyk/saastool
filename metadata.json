@@ -1,0 +1,5 @@
+{
+  "name": "SaaS Hotel Booking Platform",
+  "description": "A customizable, white-label SaaS tool for managing hotel bookings, inspired by HotelBharat. Features an advanced admin dashboard with analytics, reseller options, and branding controls.",
+  "requestFramePermissions": []
+}
